@@ -44,23 +44,34 @@ def linear_stretch(src):
     for band in src.read():
         rescaled = (band - band.min()) * (1 / (band.max() - band.min()) * 255)
         bands.append(rescaled.astype('uint8'))
-    return np.stack(bands, axis=0)
+    return np.stack(bands, axis=0)[0,:,:]
 
-def create_cog(infile, outfile, profile='deflate', web_optimized=False):
-    command = f"rio cogeo create {infile} {outfile} --cog-profile {profile} --add-mask --bidx 1 --nodata 0"
+def read_profile(infile):
+    with rasterio.open(infile) as src:
+        return src.profile
+
+def create_1band_cog(infile, outfile, profile='deflate', web_optimized=False):
+    command = f"rio cogeo create {infile} {outfile} --cog-profile {profile} --bidx 1 --nodata 0"
     if web_optimized:
         command += " --web-optimized"
     subprocess.call(command, shell=True)
 
-def cog_pipeline(infile, out_bucket, out_key):
+def create_3band_cog(infile, outfile, profile='web', web_optimized=False):
+    command = f"rio cogeo create {infile} {outfile} --cog-profile {profile} --nodata 0"
+    if web_optimized:
+        command += " --web-optimized"
+    subprocess.call(command, shell=True)
+
+def cog_1band_pipeline(infile, out_bucket, out_key):
     tempdir = tempfile.mkdtemp()
     projfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
     cogfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
+
     print("Reprojecting to 3857.")
     reproject_raster(infile, projfile, out_epsg=3857)
 
     print("Creating COG.")
-    create_cog(projfile, cogfile, profile='deflate', web_optimized=True)
+    create_1band_cog(projfile, cogfile, profile='deflate', web_optimized=True)
 
     print("Uploading COG to S3.")
     s3_client.upload_file(cogfile, out_bucket, out_key)
@@ -68,6 +79,49 @@ def cog_pipeline(infile, out_bucket, out_key):
     # Cleaning up
     shutil.rmtree(tempdir)
 
+def cog_3band_pipeline(bands, out_bucket, out_key):
+    tempdir = tempfile.mkdtemp()
+    stackedfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
+    cogfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
+
+    # Read profile from a single band
+    profile = read_profile(bands[0])
+    profile['dtype'] = 'uint8'
+    profile['count'] = 3
+
+    # Create 8-bit band stack and save to temp file
+    print("Creating 8-bit band stack.")
+    stack = []
+    for idx, band in enumerate(bands):
+        print("Processing band {}: {}".format(idx+1, band))
+        projfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
+        reproject_raster(band, projfile, out_epsg=3857)
+
+        with rasterio.open(projfile) as src:
+            stretched = linear_stretch(src)
+            stack.append(stretched)
+    stacked = np.stack(stack, axis=0)
+
+    with rasterio.open(stackedfile, 'w', **profile) as dst:
+        dst.write(stacked)
+
+    print("Creating COG.")
+    # Convert 8-bit band stac to COG
+    create_3band_cog(stackedfile, cogfile, web_optimized=True)
+
+    print("Uploading COG to S3.")
+    s3_client.upload_file(cogfile, out_bucket, out_key)
+
+    shutil.rmtree(tempdir)
+
+
+# bands = [
+#     '/home/slingshot/Documents/Conrad/FireProject/batch-cog/sample_data/Day_1_Merged_transparent_mosaic_red_3857.tif',
+#     '/home/slingshot/Documents/Conrad/FireProject/batch-cog/sample_data/Day_1_Merged_transparent_mosaic_green_3857.tif',
+#     '/home/slingshot/Documents/Conrad/FireProject/batch-cog/sample_data/Day_1_Merged_transparent_mosaic_blue_3857.tif'
+# ]
+#
+# cog_3band_pipeline(bands, '', '')
 
 # infile = '/home/slingshot/Documents/Conrad/FireProject/batch-cog/sample_data/Day_1_Merged_transparent_mosaic_green_3857.tif'
 # out_bucket = 'fireproject-tiling-test'

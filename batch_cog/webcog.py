@@ -24,7 +24,8 @@ def reproject_raster(infile, outfile, out_epsg):
             'crs': dst_crs,
             'transform': transform,
             'width': width,
-            'height': height
+            'height': height,
+            'nodata': 0,
         })
 
         with rasterio.open(outfile, 'w', **kwargs) as dst:
@@ -56,10 +57,12 @@ def create_1band_cog(infile, outfile, profile='deflate', web_optimized=False):
         command += " --web-optimized"
     subprocess.call(command, shell=True)
 
-def create_3band_cog(infile, outfile, profile='webp', web_optimized=False):
+def create_3band_cog(infile, outfile, profile='webp', web_optimized=False, mask=False):
     command = f"rio cogeo create {infile} {outfile} --cog-profile {profile} --nodata 0"
     if web_optimized:
         command += " --web-optimized"
+    if mask:
+        command += "--add-mask --bidx 1,2,3"
     subprocess.call(command, shell=True)
 
 def cog_1band_pipeline(infile, out_bucket, out_key):
@@ -79,7 +82,7 @@ def cog_1band_pipeline(infile, out_bucket, out_key):
     # Cleaning up
     shutil.rmtree(tempdir)
 
-def cog_3band_pipeline(bands, out_bucket, out_key):
+def cog_3band_pipeline(bands, out_bucket, out_key, mask=False):
     tempdir = tempfile.mkdtemp()
     stackedfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
     cogfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
@@ -107,36 +110,9 @@ def cog_3band_pipeline(bands, out_bucket, out_key):
 
     print("Creating COG.")
     # Convert 8-bit band stac to COG
-    create_3band_cog(stackedfile, cogfile, web_optimized=True)
+    create_3band_cog(stackedfile, cogfile, web_optimized=True, mask=mask)
 
     print("Uploading COG to S3.")
     s3_client.upload_file(cogfile, out_bucket, out_key)
 
     shutil.rmtree(tempdir)
-
-
-# bands = [
-#     '/home/slingshot/Documents/Conrad/FireProject/batch-cog/sample_data/Day_1_Merged_transparent_mosaic_red_3857.tif',
-#     '/home/slingshot/Documents/Conrad/FireProject/batch-cog/sample_data/Day_1_Merged_transparent_mosaic_green_3857.tif',
-#     '/home/slingshot/Documents/Conrad/FireProject/batch-cog/sample_data/Day_1_Merged_transparent_mosaic_blue_3857.tif'
-# ]
-#
-# cog_3band_pipeline(bands, '', '')
-
-# infile = '/home/slingshot/Documents/Conrad/FireProject/batch-cog/sample_data/Day_1_Merged_transparent_mosaic_green_3857.tif'
-# out_bucket = 'fireproject-tiling-test'
-# out_key = 'test2/green_cog_test.tif'
-#
-# cog_pipeline(infile, out_bucket, out_key)
-
-# with rasterio.open('/home/slingshot/Documents/Conrad/FireProject/batch-cog/sample_data/Day_1_Merged_transparent_mosaic_red_3857.tif') as src:
-#     profile = src.profile
-#     profile['dtype'] = 'uint8'
-#     profile['nodata'] = 0
-#
-#     with rasterio.open('/home/slingshot/Documents/Conrad/FireProject/batch-cog/sample_data/red_8bit.tif', 'w', **profile) as dst:
-#         dst.write(linear_stretch(src))
-#
-# create_cog('/home/slingshot/Documents/Conrad/FireProject/batch-cog/sample_data/red_8bit.tif',
-#            '/home/slingshot/Documents/Conrad/FireProject/batch-cog/sample_data/cogs/red_8bit_webp_masked_cog.tif',
-#            profile='webp')

@@ -56,7 +56,7 @@ def create_1band_cog(infile, outfile, profile='deflate', web_optimized=False):
         command += " --web-optimized"
     subprocess.call(command, shell=True)
 
-def create_3band_cog(infile, outfile, profile='web', web_optimized=False):
+def create_3band_cog(infile, outfile, profile='webp', web_optimized=False):
     command = f"rio cogeo create {infile} {outfile} --cog-profile {profile} --nodata 0"
     if web_optimized:
         command += " --web-optimized"

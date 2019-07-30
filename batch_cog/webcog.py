@@ -82,7 +82,7 @@ def cog_1band_pipeline(infile, out_bucket, out_key):
     # Cleaning up
     shutil.rmtree(tempdir)
 
-def cog_3band_pipeline(bands, out_bucket, out_key, mask=False):
+def cog_3band_pipeline(bands, out_bucket, out_key):
     tempdir = tempfile.mkdtemp()
     stackedfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
     cogfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
@@ -110,7 +110,7 @@ def cog_3band_pipeline(bands, out_bucket, out_key, mask=False):
 
     print("Creating COG.")
     # Convert 8-bit band stac to COG
-    create_3band_cog(stackedfile, cogfile, web_optimized=True, mask=mask)
+    create_3band_cog(stackedfile, cogfile, web_optimized=True, mask=True)
 
     print("Uploading COG to S3.")
     s3_client.upload_file(cogfile, out_bucket, out_key)

@@ -20,7 +20,6 @@ def create_1band_cog(input, output):
 @click.argument('band2', type=str, required=True)
 @click.argument('band3', type=str, required=True)
 @click.argument('output', type=str, required=True)
-@click.option('--mask/--no-mask', default=False)
 def create_3band_cog(band1, band2, band3, output, mask):
     splits = output.split('/')
 
@@ -29,9 +28,6 @@ def create_3band_cog(band1, band2, band3, output, mask):
         'out_bucket': splits[2],
         'out_key': '/'.join(splits[3:])
     }
-
-    if mask:
-        kwargs['mask'] = True
 
     cog_3band_pipeline(**kwargs)
 

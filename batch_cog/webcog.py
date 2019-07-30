@@ -62,7 +62,7 @@ def create_3band_cog(infile, outfile, profile='webp', web_optimized=False, mask=
     if web_optimized:
         command += " --web-optimized"
     if mask:
-        command += "--add-mask --bidx 1,2,3"
+        command += " --add-mask --bidx 1,2,3"
     subprocess.call(command, shell=True)
 
 def cog_1band_pipeline(infile, out_bucket, out_key):

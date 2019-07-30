@@ -20,7 +20,7 @@ def create_1band_cog(input, output):
 @click.argument('band2', type=str, required=True)
 @click.argument('band3', type=str, required=True)
 @click.argument('output', type=str, required=True)
-def create_3band_cog(band1, band2, band3, output, mask):
+def create_3band_cog(band1, band2, band3, output):
     splits = output.split('/')
 
     kwargs = {

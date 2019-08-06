@@ -75,6 +75,7 @@ def create_3band_cog(infile, outfile, profile='webp', web_optimized=False, mask=
 
 def cog_1band_pipeline(infile, out_bucket, out_key):
     tempdir = tempfile.mkdtemp(prefix='/data/')
+    print("Temp directory: {}".format(tempdir))
     try:
         projfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
         cogfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
@@ -94,7 +95,8 @@ def cog_1band_pipeline(infile, out_bucket, out_key):
         shutil.rmtree(tempdir)
 
 def cog_3band_pipeline(bands, out_bucket, out_key):
-    tempdir = tempfile.mkdtemp(prefix='/data')
+    tempdir = tempfile.mkdtemp(prefix='/data/')
+    print("Temp directory: {}".format(tempdir))
     try:
         projfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
         cogfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')

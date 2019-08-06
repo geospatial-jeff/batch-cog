@@ -95,7 +95,7 @@ def cog_1band_pipeline(infile, out_bucket, out_key):
         shutil.rmtree(tempdir)
 
 def cog_3band_pipeline(bands, out_bucket, out_key):
-    tempdir = tempfile.mkdtemp()
+    tempdir = tempfile.mkdtemp(prefix='/data/')
     print("Temp directory: {}".format(tempdir))
     cogfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
     stackedfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')

@@ -95,33 +95,34 @@ def cog_1band_pipeline(infile, out_bucket, out_key):
         shutil.rmtree(tempdir)
 
 def cog_3band_pipeline(bands, out_bucket, out_key):
-    tempdir = tempfile.mkdtemp(prefix='/data/')
+    tempdir = tempfile.mkdtemp()
     print("Temp directory: {}".format(tempdir))
-    try:
-        projfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
-        cogfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
+    cogfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
+    stackedfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
 
-        profile = read_profile(bands[0])
-        profile['dtype'] = 'uint8'
-        profile['count'] = 3
+    profile = read_profile(bands[0])
+    profile['dtype'] = 'uint8'
+    profile['count'] = 3
 
-        print("Creating 8-bit band stack.")
-        memfile = MemoryFile()
-        with memfile.open(**profile) as dst:
-            for idx, band in enumerate(bands):
-                print("Processing band {}: {}".format(idx+1, band))
-                with rasterio.open(band) as src:
-                    dst.write(linear_stretch(src), idx+1)
+    stack = []
+    for idx, band in enumerate(bands):
+        print("Processing band: {}".format(band))
+        projfile = os.path.join(os.getcwd(), str(uuid.uuid4()) + '.tif')
+        reproject_raster(band, projfile, out_epsg=3857)
 
-        print("Reprojecting to 3857.")
-        reproject_raster(memfile, projfile, out_epsg=3857)
+        with rasterio.open(projfile) as src:
+            stretched = linear_stretch(src)
+            stack.append(stretched)
 
-        print("Creating COG.")
-        create_3band_cog(projfile, cogfile, web_optimized=True, mask=True)
+    stacked = np.stack(stack, axis=0)
 
-        print("Uploading COG to S3.")
-        s3_client.upload_file(cogfile, out_bucket, out_key)
-    except:
-        shutil.rmtree(tempdir)
-    finally:
-        shutil.rmtree(tempdir)
+    with rasterio.open(stackedfile, 'w', **profile) as dst:
+        dst.write(stacked)
+
+    print("Creating COG.")
+    create_3band_cog(stackedfile, cogfile, web_optimized=True, mask=True)
+
+    print("Uploading to S3")
+    s3_client.upload_file(cogfile, out_bucket, out_key)
+
+    shutil.rmtree(tempdir)

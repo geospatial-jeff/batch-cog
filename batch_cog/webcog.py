@@ -74,23 +74,27 @@ def create_3band_cog(infile, outfile, profile='webp', web_optimized=False, mask=
     subprocess.call(command, shell=True)
 
 def cog_1band_pipeline(infile, out_bucket, out_key):
-    tempdir = tempfile.mkdtemp()
-    projfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
-    cogfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
+    tempdir = tempfile.mkdtemp(prefix='/data/')
+    try:
+        projfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
+        cogfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
 
-    print("Reprojecting to 3857.")
-    reproject_raster(infile, projfile, out_epsg=3857)
+        print("Reprojecting to 3857.")
+        reproject_raster(infile, projfile, out_epsg=3857)
 
-    print("Creating COG.")
-    create_1band_cog(projfile, cogfile, profile='deflate', web_optimized=True)
+        print("Creating COG.")
+        create_1band_cog(projfile, cogfile, profile='deflate', web_optimized=True)
 
-    print("Uploading COG to S3.")
-    s3_client.upload_file(cogfile, out_bucket, out_key)
+        print("Uploading COG to S3.")
+        s3_client.upload_file(cogfile, out_bucket, out_key)
 
-    # Cleaning up
+    except:
+        shutil.rmtree(tempdir)
+    finally:
+        shutil.rmtree(tempdir)
 
 def cog_3band_pipeline(bands, out_bucket, out_key):
-    tempdir = tempfile.mkdtemp()
+    tempdir = tempfile.mkdtemp(prefix='/data')
     try:
         projfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
         cogfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')

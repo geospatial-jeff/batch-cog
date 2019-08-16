@@ -100,14 +100,10 @@ def cog_3band_pipeline(bands, out_bucket, out_key):
     cogfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
     stackedfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
 
-    profile = read_profile(bands[0])
-    profile['dtype'] = 'uint8'
-    profile['count'] = 3
-
     stack = []
     for idx, band in enumerate(bands):
         print("Processing band: {}".format(band))
-        projfile = os.path.join(os.getcwd(), str(uuid.uuid4()) + '.tif')
+        projfile = os.path.join(tempdir, str(uuid.uuid4()) + '.tif')
         reproject_raster(band, projfile, out_epsg=3857)
 
         with rasterio.open(projfile) as src:
@@ -115,6 +111,9 @@ def cog_3band_pipeline(bands, out_bucket, out_key):
             stack.append(stretched)
 
     stacked = np.stack(stack, axis=0)
+    profile = read_profile(projfile)
+    profile['dtype'] = 'uint8'
+    profile['count'] = 3
 
     with rasterio.open(stackedfile, 'w', **profile) as dst:
         dst.write(stacked)
